@@ -221,12 +221,19 @@ class MWS(object):
         params.update(extra_data)
         request_description = calc_request_description(params)
         signature = self.calc_signature(method, request_description)
-        url = "{domain}{uri}?{description}&Signature={signature}".format(
-            domain=self.domain,
-            uri=self.uri,
-            description=request_description,
-            signature=quote(signature),
-        )
+        if method == 'POST':
+            params['Signature'] = signature
+            url = "{domain}{uri}".format(
+                domain=self.domain,
+                uri=self.uri
+            )
+        else:
+            url = "{domain}{uri}?{description}&Signature={signature}".format(
+                domain=self.domain,
+                uri=self.uri,
+                description=request_description,
+                signature=quote(signature),
+            )
         headers = {'User-Agent': 'python-amazon-mws/0.8.6 (Language=Python)'}
         headers.update(kwargs.get('extra_headers', {}))
 
@@ -235,7 +242,10 @@ class MWS(object):
             # My answer is, here i have to get the url parsed string of params in order to sign it, so
             # if i pass the params dict as params to request, request will repeat that step because it will need
             # to convert the dict to a url parsed string, so why do it twice if i can just pass the full url :).
-            response = request(method, url, data=kwargs.get('body', ''), headers=headers)
+            if method == 'POST':
+                response = request(method, url, data=params, headers=headers)
+            else:
+                response = request(method, url, data=kwargs.get('body', ''), headers=headers)
             response.raise_for_status()
             # When retrieving data from the response object,
             # be aware that response.content returns the content in bytes while response.text calls
@@ -699,6 +709,106 @@ class Products(MWS):
                     ItemCondition=condition)
         data.update(utils.enumerate_param('ASINList.ASIN.', asins))
         return self.make_request(data)
+
+#    def get_my_fees_estimate_2(self, products_api, marketplace_id, items_list, id_type = 'ASIN', is_amazon_fulfilled = True):
+#        data = dict(Action = 'GetMyFeesEstimate')
+#        for i, item in enumerate(items_list, start = 1):
+#            data["FeesEstimateRequestList.FeesEstimateRequest.{}.Identifier".format(i)] = item[0]
+#            data["FeesEstimateRequestList.FeesEstimateRequest.{}.IdType".format(i)] = id_type
+#            data["FeesEstimateRequestList.FeesEstimateRequest.{}.IdValue".format(i)] = item[0]
+#            data["FeesEstimateRequestList.FeesEstimateRequest.{}.MarketplaceId".format(i)] = marketplace_id
+#            data["FeesEstimateRequestList.FeesEstimateRequest.{}.PriceToEstimateFees.ListingPrice.Amount".format(i)] = str(item[1]) # Landed price
+#            data["FeesEstimateRequestList.FeesEstimateRequest.{}.PriceToEstimateFees.ListingPrice.CurrencyCode".format(i)] = item[2]
+#            data["FeesEstimateRequestList.FeesEstimateRequest.{}.IsAmazonFulfilled".format(i)] = str(is_amazon_fulfilled).lower()
+#        print data
+#        #return self.make_request(data, method="POST")
+#        return self.mws_post(data)
+#    
+#    def mws_post(self, body, **kwargs):
+#        body = remove_empty(body)
+#        method = 'POST'
+#    
+#        for key, value in body.items():
+#            if isinstance(value, (datetime.datetime, datetime.date)):
+#                body[key] = value.isoformat()
+#    
+#        params = self.get_params()
+#        params.update(body)
+#        request_description = calc_request_description(params)
+#        signature = self.calc_signature(method, request_description)
+#        params['Signature'] = signature
+#        url = "{domain}{uri}".format(
+#            domain=self.domain,
+#            uri=self.uri
+#        )
+#        headers = {'User-Agent': 'python-amazon-mws/0.8.6 (Language=Python)'}
+#        headers.update(kwargs.get('extra_headers', {}))
+#    
+#        try:
+#            response = request(method, url, data=params, headers=headers)
+#            response.raise_for_status()
+#            data = response.content
+#            rootkey = kwargs.get('rootkey', body.get("Action") + "Result")
+#            try:
+#                try:
+#                    parsed_response = DictWrapper(data, rootkey)
+#                except TypeError:
+#                    parsed_response = DictWrapper(response.text, rootkey)
+#    
+#            except XMLError:
+#                parsed_response = DataWrapper(data, response.headers)
+#    
+#        except HTTPError as e:
+#            error = MWSError(str(e.response.text))
+#            error.response = e.response
+#            raise error
+#    
+#        # Store the response object in the parsed_response for quick access
+#        parsed_response.response = response
+#        return parsed_response
+
+    def get_my_fees_estimate(self, marketplaceid, idtype, idvalue, isamazonfulfilled, identifier, listingprice, shippingcost, currency='USD', shipcurrency='USD', points='0', pointsvalue='0', pointscurrency='USD'):
+        if type(marketplaceid) is not list:
+            marketplaceid = [marketplaceid]
+        if type(idtype) is not list:
+            idtype = [idtype]
+        if type(idvalue) is not list:
+            idvalue = [idvalue]
+        if type(isamazonfulfilled) is not list:
+            isamazonfulfilled = [isamazonfulfilled]
+        if type(identifier) is not list:
+            identifier = [identifier]
+        if type(listingprice) is not list:
+            listingprice = [listingprice]
+        if type(currency) is not list:
+            currency = [currency]
+        if type(shippingcost) is not list:
+            shippingcost = [shippingcost]
+        if type(shipcurrency) is not list:
+            shipcurrency = [shipcurrency]
+        if type(points) is not list:
+            points = [points]
+        if type(pointsvalue) is not list:
+            pointsvalue = [pointsvalue]
+        if type(pointscurrency) is not list:
+            pointscurrency = [pointscurrency]
+
+        data = dict(Action='GetMyFeesEstimate')
+        data.update(utils.enumerate_param_additional('FeesEstimateRequestList.FeesEstimateRequest.', marketplaceid, 'MarketplaceId'))
+        data.update(utils.enumerate_param_additional('FeesEstimateRequestList.FeesEstimateRequest.', idtype, 'IdType'))
+        data.update(utils.enumerate_param_additional('FeesEstimateRequestList.FeesEstimateRequest.', idvalue, 'IdValue'))
+        data.update(utils.enumerate_param_additional('FeesEstimateRequestList.FeesEstimateRequest.', isamazonfulfilled, 'IsAmazonFulfilled'))
+        data.update(utils.enumerate_param_additional('FeesEstimateRequestList.FeesEstimateRequest.', identifier, 'Identifier'))
+        data.update(utils.enumerate_param_additional('FeesEstimateRequestList.FeesEstimateRequest.', listingprice, 'PriceToEstimateFees.ListingPrice.Amount'))
+        data.update(utils.enumerate_param_additional('FeesEstimateRequestList.FeesEstimateRequest.', currency, 'PriceToEstimateFees.ListingPrice.CurrencyCode'))
+        data.update(utils.enumerate_param_additional('FeesEstimateRequestList.FeesEstimateRequest.', shippingcost, 'PriceToEstimateFees.Shipping.Amount'))
+        data.update(utils.enumerate_param_additional('FeesEstimateRequestList.FeesEstimateRequest.', shipcurrency, 'PriceToEstimateFees.Shipping.CurrencyCode'))
+        data.update(utils.enumerate_param_additional('FeesEstimateRequestList.FeesEstimateRequest.', points, 'PriceToEstimateFees.Points.PointsNumber'))
+        data.update(utils.enumerate_param_additional('FeesEstimateRequestList.FeesEstimateRequest.', pointsvalue, 'PriceToEstimateFees.Points.PointsMonetaryValue.Amount'))
+        data.update(utils.enumerate_param_additional('FeesEstimateRequestList.FeesEstimateRequest.', pointscurrency, 'PriceToEstimateFees.Points.PointsMonetaryValue.CurrencyCode'))
+
+        #return self.mws_post(data)
+        return self.make_request(data, method="POST")
 
 
 class Sellers(MWS):

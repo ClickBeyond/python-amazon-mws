@@ -152,6 +152,26 @@ def enumerate_params(params=None):
     return params_output
 
 
+def enumerate_param_additional(param, values, partype):
+    """
+    Builds a dictionary of an enumerated parameter - updated for GetMyFeesEstimate.
+    Takes any iterable and returns a dictionary.
+    ie.
+    enumerate_param_additional('FeesEstimateRequestList.FeesEstimateRequest.', ['123'], 'MarketplaceId')
+    returns
+    {
+        FeesEstimateRequestList.FeesEstimateRequest.1.MarketplaceId: 123
+    }
+    """
+    params = {}
+    if values is not None:
+        if not param.endswith('.'):
+            param = "%s." % param
+        for num, value in enumerate(values):
+            params['%(x)s%(y)d.%(z)s' % {"x" : param, "y" : (num + 1), "z" : partype}] = value
+    return params
+
+
 def enumerate_keyed_param(param, values):
     """
     Given a param string and a dict of values, returns a flat dict of keyed, enumerated params.
